@@ -1,0 +1,52 @@
+---
+
+- name: add phpenv initialization to profile system-wide
+  template: src=phpenv_system.sh.j2 dest=/etc/profile.d/phpenv.sh owner=root group=root mode=0755
+  become: yes
+
+- name: check phpenv installed
+  stat: path={{ phpenv_root }}
+  register: phpenv
+
+- name: git clone phpenv
+  git: repo=https://github.com/phpenv/phpenv.git dest={{ phpenv_root }}
+  when: not phpenv.stat.exists
+  become: yes
+
+- name: check php_build installed
+  stat: path={{ phpenv_root }}/plugins/php-build
+  register: php_build
+- name: git clone php_build
+  git: repo=https://github.com/php-build/php-build dest={{ phpenv_root }}/plugins/php-build
+  when: not php_build.stat.exists
+  become: yes
+  
+- name: update phpenv
+  command: git pull --rebase chdir={{ phpenv_root }}
+  become: yes
+- name: update php-build
+  command: git pull --rebase chdir={{ phpenv_root }}/plugins/php-build
+  become: yes
+- name: install php dependencies
+  yum: 
+    name: "{{items}}"
+    state: latest
+  vars:
+    items:
+    - make
+    - gcc
+    - gcc-c++
+  become: yes
+
+- name: check php installed
+  shell: /bin/bash -lc "phpenv versions | grep {{ versions.php }}"
+  register: php_installed
+  ignore_errors: yes
+  become: yes
+- name: install php
+  shell: /bin/bash -lc "phpenv install -v {{ versions.php }} && phpenv rehash"
+  become: yes
+  when: php_installed.rc != 0
+- name: phpenv global
+  shell: /bin/bash -lc "phpenv global {{ versions.php }}"
+  become: yes

@@ -1,0 +1,53 @@
+---
+
+- name: add rbenv initialization to profile system-wide
+  template: src=rbenv_system.sh.j2 dest=/etc/profile.d/rbenv.sh owner=root group=root mode=0755
+  become: yes
+
+- name: check rbenv installed
+  stat: path={{ rbenv_root }}
+  register: rbenv
+- name: git clone rbenv
+  git: repo=https://github.com/rbenv/rbenv.git dest={{ rbenv_root }}
+  when: not rbenv.stat.exists
+  become: yes
+- name: check ruby_build installed
+  stat: path={{ rbenv_root }}/plugins/ruby-build
+  register: ruby_build
+- name: git clone ruby_build
+  git: repo=https://github.com/rbenv/ruby-build.git dest={{ rbenv_root }}/plugins/ruby-build
+  when: not ruby_build.stat.exists
+  become: yes
+- name: update rbenv
+  command: git pull --rebase chdir={{ rbenv_root }}
+  become: yes
+- name: update ruby-build
+  command: git pull --rebase chdir={{ rbenv_root }}/plugins/ruby-build
+  become: yes
+  
+- name: install ruby dependencies
+  yum: 
+    name: "{{items}}"
+    state: latest
+  vars:
+    items:
+    - make
+    - gcc
+    - gcc-c++
+  become: yes
+
+- name: check ruby installed
+  shell: /bin/bash -lc "rbenv versions | grep {{ versions.ruby }}"
+  register: ruby_installed
+  ignore_errors: yes
+  become: yes
+- name: install ruby
+  shell: /bin/bash -lc "rbenv install -v {{ versions.ruby }} && rbenv rehash"
+  become: yes
+  when: ruby_installed.rc != 0
+- name: rbenv global
+  shell: /bin/bash -lc "rbenv global {{ versions.ruby }}"
+  become: yes
+- name: gem install bundler
+  gem: name=bundler executable={{ rbenv_root }}/shims/gem user_install=False
+  become: yes

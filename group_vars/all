@@ -1,0 +1,8 @@
+---
+# file: group_vars/all
+versions: {
+    php: "7.2.12",
+    ruby: "2.5.1",
+}
+phpenv_root: "/usr/local/phpenv"
+rbenv_root: "/usr/local/rbenv"
